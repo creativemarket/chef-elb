@@ -7,6 +7,7 @@ include WebsterClay::Aws::Elb
 def load_current_resource
 
   @current_lb = load_balancer_by_name(new_resource.lb_name)
+  @current_lb_policies = (@current_lb && policies_for_load_balancer(new_resource.lb_name)) || []
 
   @current_resource = Chef::Resource::ElbLoadBalancer.new(new_resource.lb_name)
   @current_resource.lb_name(new_resource.lb_name)
@@ -34,6 +35,13 @@ def load_current_resource
   if new_resource.availability_zones.nil?
     new_resource.availability_zones(unique_zones)
   end
+
+  # Transform the existing policies into our format.
+  @current_resource.policies(Hash[@current_lb_policies.map do |policy|
+    hash = Hash[policy["PolicyAttributeDescriptions"].map{|attributes| [attributes["AttributeName"], attributes["AttributeValue"]]}]
+    hash["Type"] = policy["PolicyTypeName"]
+    [policy["PolicyName"], hash]
+  end.to_a])
 end
 
 action :create do
@@ -134,13 +142,26 @@ action :create do
     new_resource.updated_by_last_action(true)
   end
 
+  new_resource.policies.each do |name,policy|
+    attributes = policy.clone
+    attributes.delete(("Type"))
+
+    ruby_block "Create policy '#{name}' for ELB #{new_resource.lb_name}" do
+      block do
+        elb.create_load_balancer_policy(new_resource.lb_name, name, policy["Type"], attributes)
+        node.set[:elb][new_resource.lb_name] = load_balancer_by_name(new_resource.lb_name)
+        node.save if !Chef::Config.solo
+      end
+      action :create
+    end
+    new_resource.updated_by_last_action(true)
+  end
+
   new_resource.listeners.each do |listener|
-    if listener["CookiePolicy"] && listener["CookiePolicy"]["Type"] == "LBCookieStickinessPolicy"
-      cookie_policy = listener["CookiePolicy"]
-      ruby_block "Set cookie policy for listener on port #{listener['LoadBalancerPort'].to_s} for ELB #{new_resource.lb_name}" do
+    if listener["Policies"]
+      ruby_block "Set policies for listener on port #{listener['LoadBalancerPort'].to_s} for ELB #{new_resource.lb_name}" do
         block do
-          elb.create_lb_cookie_stickiness_policy(new_resource.lb_name, listener["LoadBalancerPort"].to_s, cookie_policy["ExpirationPeriod"])
-          elb.set_load_balancer_policies_of_listener(new_resource.lb_name, listener["LoadBalancerPort"], [listener["LoadBalancerPort"].to_s])
+          elb.set_load_balancer_policies_of_listener(new_resource.lb_name, listener["LoadBalancerPort"], listener["Policies"])
           node.set[:elb][new_resource.lb_name] = load_balancer_by_name(new_resource.lb_name)
           node.save if !Chef::Config.solo
         end
