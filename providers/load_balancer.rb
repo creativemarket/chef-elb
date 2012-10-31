@@ -15,6 +15,7 @@ def load_current_resource
   @current_resource.region(new_resource.region)
   @current_resource.listeners(new_resource.listeners)
   @current_resource.timeout(new_resource.timeout)
+  @current_resource.health_check(new_resource.health_check)
 
   if @current_lb
     @current_resource.availability_zones(@current_lb['AvailabilityZones'])
@@ -121,6 +122,33 @@ action :create do
     new_resource.updated_by_last_action(true)
   end
 
+  if new_resource.health_check
+    ruby_block "Set health check for ELB #{new_resource.lb_name}" do
+      block do
+        elb.configure_health_check(new_resource.lb_name, new_resource.health_check)
+        node.set[:elb][new_resource.lb_name] = load_balancer_by_name(new_resource.lb_name)
+        node.save if !Chef::Config.solo
+      end
+      action :create
+    end
+    new_resource.updated_by_last_action(true)
+  end
+
+  new_resource.listeners.each do |listener|
+    if listener["CookiePolicy"] && listener["CookiePolicy"]["Type"] == "LBCookieStickinessPolicy"
+      cookie_policy = listener["CookiePolicy"]
+      ruby_block "Set cookie policy for listener on port #{listener['LoadBalancerPort'].to_s} for ELB #{new_resource.lb_name}" do
+        block do
+          elb.create_lb_cookie_stickiness_policy(new_resource.lb_name, listener["LoadBalancerPort"].to_s, cookie_policy["ExpirationPeriod"])
+          elb.set_load_balancer_policies_of_listener(new_resource.lb_name, listener["LoadBalancerPort"], [listener["LoadBalancerPort"].to_s])
+          node.set[:elb][new_resource.lb_name] = load_balancer_by_name(new_resource.lb_name)
+          node.save if !Chef::Config.solo
+        end
+        action :create
+      end
+      new_resource.updated_by_last_action(true)
+    end
+  end
 end
 
 action :delete do
