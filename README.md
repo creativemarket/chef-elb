@@ -107,7 +107,7 @@ Caveats
 
 The cookbook automates determining what availability zones your instances are
 in and automatically registers the instances. ELB's distribute traffic equally
-between all enabled Availibity Zones. It's up to you to confirm that your 
+between all enabled Availibity Zones. It's up to you to confirm that your
 instance distribution is equal if you have instances on more than one AZ.
 
 Resources
@@ -118,10 +118,10 @@ Resources
 Author
 ------
 
-Jesse Newland  
-jesse@websterclay.com  
-@jnewland  
-jnewland on freenode  
+Jesse Newland
+jesse@websterclay.com
+@jnewland
+jnewland on freenode
 
 License
 -------
