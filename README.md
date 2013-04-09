@@ -58,6 +58,19 @@ search:
       action :create
     end
 
+You can configure the `health check` parameters from the defaults by specifying
+the `health_check` attribute with a hash:
+
+    elb_load_balancer "ap-tcp-frontend" do
+      aws_access_key        aws['aws_access_key_id']
+      aws_secret_access_key aws['aws_secret_access_key']
+      instances             ['i-xxxxx', 'i-xxxxx']
+      region                'ap-southeast-1'
+      listeners             [{"InstancePort" => 1234, "Protocol" => "TCP", "LoadBalancerPort" => 1234}]
+      health_check          [{"HealthyThreshold" => 10, "Interval" => 30, "Target" => "HTTP:80/ping", "Timeout" => 5, "UnhealthyThreshold" =>2}]
+      action :create
+    end
+
 You can also do SSL, but it's a little funky.
 
 First, you have to [upload your cert](http://docs.amazonwebservices.com/ElasticLoadBalancing/latest/DeveloperGuide/index.html?US_SettingUpLoadBalancerHTTPSIntegrated.html).
@@ -94,7 +107,7 @@ Caveats
 
 The cookbook automates determining what availability zones your instances are
 in and automatically registers the instances. ELB's distribute traffic equally
-between all enabled Availibity Zones. It's up to you to confirm that your 
+between all enabled Availibity Zones. It's up to you to confirm that your
 instance distribution is equal if you have instances on more than one AZ.
 
 Resources
@@ -105,10 +118,10 @@ Resources
 Author
 ------
 
-Jesse Newland  
-jesse@websterclay.com  
-@jnewland  
-jnewland on freenode  
+Jesse Newland
+jesse@websterclay.com
+@jnewland
+jnewland on freenode
 
 License
 -------
