@@ -11,3 +11,4 @@ attribute :search_query,          :kind_of => String
 attribute :timeout,                                   :default => 60
 attribute :health_check,          :kind_of => Hash
 attribute :policies,              :kind_of => Hash,  :default => {}
+attribute :retries,               :kind_of => Integer, :default => 20
