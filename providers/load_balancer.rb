@@ -13,7 +13,12 @@ def load_current_resource
   @current_resource.lb_name(new_resource.lb_name)
   @current_resource.aws_access_key(new_resource.aws_access_key)
   @current_resource.aws_secret_access_key(new_resource.aws_secret_access_key)
+  @current_resource.aws_session_token(new_resource.aws_session_token)
   @current_resource.region(new_resource.region)
+  @current_resource.subnet_ids(new_resource.subnet_ids)
+  @current_resource.cross_zone_load_balancing(new_resource.cross_zone_load_balancing)
+  @current_resource.connection_draining_enable(new_resource.connection_draining_enable)
+  @current_resource.connection_draining_timeout(new_resource.connection_draining_timeout)
   @current_resource.listeners(new_resource.listeners)
   @current_resource.timeout(new_resource.timeout)
   @current_resource.health_check(new_resource.health_check)
@@ -49,7 +54,7 @@ action :create do
     retries     new_resource.retries
     retry_delay 10
     block do
-      elb.create_load_balancer(new_resource.availability_zones, new_resource.lb_name, new_resource.listeners)
+      elb.create_load_balancer(new_resource.subnet_ids, new_resource.availability_zones, new_resource.lb_name, new_resource.listeners)
       data = nil
       begin
         Timeout::timeout(new_resource.timeout) do
@@ -173,6 +178,8 @@ action :create do
       new_resource.updated_by_last_action(true)
     end
   end
+
+  #TODO: Add ruby blocks for cross_zone_load_balancing, connection_draining_enable, connection_draining_timeout
 end
 
 action :delete do

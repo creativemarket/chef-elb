@@ -4,14 +4,17 @@ module WebsterClay
 		def credentials(keys = {})
     	keys[:aws_access_key_id] = new_resource.aws_access_key || iam_creds[:aws_access_key_id]
     	keys[:aws_secret_access_key] = new_resource.aws_secret_access_key || iam_creds[:aws_secret_access_key]
-    	keys
+			keys[:aws_session_token] = new_resource.aws_session_token || iam_creds[:aws_session_token]
+			keys
 		end
 
 		def elb
 		@@elb ||= Fog::AWS::ELB.new(
 			:aws_access_key_id => credentials[:aws_access_key_id],
 			:aws_secret_access_key => credentials[:aws_secret_access_key],
-			:region => new_resource.region
+			:aws_session_token => credentials[:aws_session_token],
+			:region => new_resource.region,
+			:subnet_ids => new_resource.subnet_ids
     )
 		end
 
@@ -19,6 +22,7 @@ module WebsterClay
 		@@ec2 ||= Fog::Compute.new(:provider => 'AWS',
 			:aws_access_key_id => credentials[:aws_access_key_id],
 			:aws_secret_access_key => credentials[:aws_secret_access_key],
+			:aws_session_token => credentials[:aws_session_token],
 			:region => new_resource.region
 		)
 		end
@@ -36,7 +40,7 @@ module WebsterClay
 		end
 
 		def iam_creds
-			@@iam_creds ||= Fog::AWS::CredentialFetcher::ServiceMethods::fetch_credentials(:use_iam_profile => true)
+			@@iam_creds ||= Fog::AWS::ELB::fetch_credentials(:use_iam_profile => true)
 		end
 
 		end
