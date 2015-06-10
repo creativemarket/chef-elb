@@ -1,12 +1,11 @@
 module WebsterClay
 	module Aws
-	module Elb
-
+		module Elb
 		def credentials(keys = {})
-      keys[:aws_access_key_id] = new_resource.aws_access_key || fetch_iam_creds[:aws_access_key_id]
-      keys[:aws_secret_access_key] = new_resource.aws_secret_access_key || fetch_iam_creds[:aws_secret_access_key]
-      return keys
-    end
+    	keys[:aws_access_key_id] = new_resource.aws_access_key || iam_creds[:aws_access_key_id]
+    	keys[:aws_secret_access_key] = new_resource.aws_secret_access_key || iam_creds[:aws_secret_access_key]
+    	keys
+		end
 
 		def elb
 		@@elb ||= Fog::AWS::ELB.new(
@@ -36,8 +35,10 @@ module WebsterClay
 		ec2.describe_instances('instance-id' => [*instances]).body['reservationSet'].map { |r| r['instancesSet'] }.flatten.map { |i| i['placement']['availabilityZone'] }
 		end
 
-		def fetch_iam_creds ||= Fog::AWS::CredentialFetcher::ServiceMethods::fetch_credentials(:use_iam_profile => true) end
+		def iam_creds
+			@@iam_creds ||= Fog::AWS::CredentialFetcher::ServiceMethods::fetch_credentials(:use_iam_profile => true)
+		end
 
-	end
+		end
 	end
 end
