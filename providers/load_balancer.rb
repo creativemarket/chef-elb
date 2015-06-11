@@ -54,7 +54,7 @@ action :create do
     retries     new_resource.retries
     retry_delay 10
     block do
-      elb.create_load_balancer(new_resource.subnet_ids, new_resource.availability_zones, new_resource.lb_name, new_resource.listeners)
+      elb.create_load_balancer(new_resource.availability_zones, new_resource.lb_name, new_resource.listeners)
       data = nil
       begin
         Timeout::timeout(new_resource.timeout) do

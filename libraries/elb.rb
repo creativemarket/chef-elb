@@ -10,11 +10,9 @@ module WebsterClay
 
 		def elb
 		@@elb ||= Fog::AWS::ELB.new(
-			:aws_access_key_id => credentials[:aws_access_key_id],
-			:aws_secret_access_key => credentials[:aws_secret_access_key],
-			:aws_session_token => credentials[:aws_session_token],
+			:use_iam_profile => new_resource.use_iam_profile,
 			:region => new_resource.region,
-			:subnet_ids => new_resource.subnet_ids
+			:availability_zones => new_resource.availability_zones
     )
 		end
 
