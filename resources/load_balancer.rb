@@ -6,7 +6,7 @@ attribute :aws_secret_access_key, 			:kind_of => String
 attribute :aws_session_token, 					:kind_of => String
 attribute :region,                			:kind_of => String,		:default => 'us-east-1'
 attribute :availability_zones,    			:kind_of => Array
-attribute :cross_zone_load_balancing,		:kind_of => Boolean
+attribute :cross_zone_load_balancing,		:kind_of => Boolean,	:default => true
 attribute :connection_draining_enable,	:kind_of => Boolean,	:default => true
 attribute :connection_draining_timeout,	:kind_of => Integer,	:default => 300
 attribute :subnet_ids,									:kind_of => Array
