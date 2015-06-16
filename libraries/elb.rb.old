@@ -1,0 +1,37 @@
+module Cm
+	module Aws
+		module Elb
+
+		def elb
+		@@elb ||= Fog::AWS::ELB.new(
+			:use_iam_profile => new_resource.use_iam_profile,
+			:region => new_resource.region
+    )
+		end
+
+		def ec2
+		@@ec2 ||= Fog::Compute.new(:provider => 'AWS',
+			:use_iam_profile => new_resource.use_iam_profile,
+			:region => new_resource.region
+		)
+		end
+
+		def load_balancer_by_name(name)
+		elb.describe_load_balancers.body["DescribeLoadBalancersResult"]["LoadBalancerDescriptions"].detect { |lb| lb["LoadBalancerName"] == new_resource.lb_name }
+		end
+
+		def policies_for_load_balancer(name)
+		elb.describe_load_balancer_policies(name).body["DescribeLoadBalancerPoliciesResult"]["PolicyDescriptions"]
+		end
+
+		def availability_zone_for_instances(instances)
+		ec2.describe_instances('instance-id' => [*instances]).body['reservationSet'].map { |r| r['instancesSet'] }.flatten.map { |i| i['placement']['availabilityZone'] }
+		end
+
+		def iam_creds
+			@@iam_creds ||= Fog::AWS::ELB::fetch_credentials(:use_iam_profile => true)
+		end
+
+		end
+	end
+end

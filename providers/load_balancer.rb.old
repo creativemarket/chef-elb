@@ -33,15 +33,8 @@ def load_current_resource
   all_zones = availability_zone_for_instances(new_resource.instances)
   unique_zones = all_zones.compact.uniq
 
-  all_subnets = subnets_for_instances(new_resource.instances)
-  unique_subnets = all_subnets.compact.uniq
-
   if new_resource.availability_zones.nil?
     new_resource.availability_zones(unique_zones)
-  end
-
-  if new_resource.subnet_ids.nil?
-    new_resource.subnet_ids(unique_subnets)
   end
 
   # Transform the existing policies into our format.
@@ -57,14 +50,8 @@ action :create do
     retries     new_resource.retries
     retry_delay 10
     block do
-      if load_balancer_by_name(new_resource.lb_name)["VPCId"]
-        zones = []  # We're in a VPC so we'll pass subnet_ids and not availability_zones
-        options = { subnet_ids: node['cm-elb']['subnet_ids'], security_groups: node['cm-elb']['security_groups'] }
-        elb.create_load_balancer(zones, new_resource.lb_name, new_resource.listeners, options)
-      else
-        options = { security_groups: node['cm-elb']['security_groups'] }
-        elb.create_load_balancer(new_resource.availability_zones, new_resource.lb_name, new_resource.listeners, options)
-      end
+      options => { subnet_ids: node['cm-elb']['subnet_ids'], security_groups: node['cm-elb']['security_groups'] }
+      elb.create_load_balancer(new_resource.availability_zones, new_resource.lb_name, new_resource.listeners, options)
       data = nil
       begin
         Timeout::timeout(new_resource.timeout) do
@@ -121,60 +108,31 @@ action :create do
     new_resource.updated_by_last_action(true)
   end
 
-  if load_balancer_by_name(new_resource.lb_name)["VPCId"]
-    subnets_to_add = new_resource.subnet_ids - current_resource.subnet_ids
-    subnets_to_delete = current_resource.subnet_ids - new_resource.subnet_ids
+  zones_to_add = new_resource.availability_zones - current_resource.availability_zones
+  zones_to_delete = current_resource.availability_zones - new_resource.availability_zones
 
-    subnets_to_add.each do |subnet_to_add|
-      ruby_block "Enabling Subnet ID #{subnet_to_add} for ELB #{new_resource.lb_name}" do
-        block do
-          elb.attach_load_balancer_to_subnets([subnet_to_add], new_resource.lb_name)
-          node.set[:elb][new_resource.lb_name] = load_balancer_by_name(new_resource.lb_name)
-          node.save if !Chef::Config.solo
-        end
-        action :create
+  zones_to_add.each do |zone_to_add|
+    ruby_block "Enabling Availability Zone #{zone_to_add} for ELB #{new_resource.lb_name}" do
+      block do
+        elb.enable_availability_zones_for_load_balancer([zone_to_add], new_resource.lb_name)
+        node.set[:elb][new_resource.lb_name] = load_balancer_by_name(new_resource.lb_name)
+        node.save if !Chef::Config.solo
       end
-      new_resource.updated_by_last_action(true)
+      action :create
     end
+    new_resource.updated_by_last_action(true)
+  end
 
-    subnets_to_delete.each do |subnet_to_delete|
-      ruby_block "Disabling Subnet ID #{subnet_to_add} for ELB #{new_resource.lb_name}" do
-        block do
-          elb.detach_load_balancer_from_subnets([subnet_to_delete], new_resource.lb_name)
-          node.set[:elb][new_resource.lb_name] = load_balancer_by_name(new_resource.lb_name)
-          node.save if !Chef::Config.solo
-        end
-        action :create
+  zones_to_delete.each do |zone_to_delete|
+    ruby_block "Disable Availability Zone #{zone_to_delete} for ELB #{new_resource.lb_name}" do
+      block do
+        elb.disable_availability_zones_for_load_balancer([zone_to_delete], new_resource.lb_name)
+        node.set[:elb][new_resource.lb_name] = load_balancer_by_name(new_resource.lb_name)
+        node.save if !Chef::Config.solo
       end
-      new_resource.updated_by_last_action(true)
+      action :create
     end
-  else
-    zones_to_add = new_resource.availability_zones - current_resource.availability_zones
-    zones_to_delete = current_resource.availability_zones - new_resource.availability_zones
-
-    zones_to_add.each do |zone_to_add|
-      ruby_block "Enabling Availability Zone #{zone_to_add} for ELB #{new_resource.lb_name}" do
-        block do
-          elb.enable_availability_zones_for_load_balancer([zone_to_add], new_resource.lb_name)
-          node.set[:elb][new_resource.lb_name] = load_balancer_by_name(new_resource.lb_name)
-          node.save if !Chef::Config.solo
-        end
-        action :create
-      end
-      new_resource.updated_by_last_action(true)
-    end
-
-    zones_to_delete.each do |zone_to_delete|
-      ruby_block "Disable Availability Zone #{zone_to_delete} for ELB #{new_resource.lb_name}" do
-        block do
-          elb.disable_availability_zones_for_load_balancer([zone_to_delete], new_resource.lb_name)
-          node.set[:elb][new_resource.lb_name] = load_balancer_by_name(new_resource.lb_name)
-          node.save if !Chef::Config.solo
-        end
-        action :create
-      end
-      new_resource.updated_by_last_action(true)
-    end
+    new_resource.updated_by_last_action(true)
   end
 
   if new_resource.health_check
@@ -218,31 +176,10 @@ action :create do
     end
   end
 
-  if new_resource.connection_draining_enable
-    ruby_block "Enable connection draining for ELB #{new_resource.lb_name}" do
-      block do
-        options = { ConnectionDraining: { Enabled: true, Timeout: new_resource.connection_draining_timeout }}
-        elb.modify_load_balancer_attributes(new_resource.lb_name, options)
-        node.set[:elb][new_resource.lb_name] = load_balancer_by_name(new_resource.lb_name)
-        node.save if !Chef::Config.solo
-      end
-      action :create
-    end
-    new_resource.updated_by_last_action(true)
-  end
+  #TODO: Add ruby blocks here for cross_zone_load_balancing, #connection_draining_enable, #connection_draining_timeout
+  # elb.set_connection_draining(new_resource.connection_draining_enable, timeout = new_resource.connection_draining_timeout)
+  # elb.cross_zone_load_balancing(new_resource.cross_zone_load_balancing)
 
-  if new_resource.cross_zone_load_balancing
-    ruby_block "Enabling cross zone load balancing for ELB #{new_resource.lb_name}" do
-      block do
-        options = { CrossZoneLoadBalancing: { Enabled: true }}
-        elb.modify_load_balancer_attributes(new_resource.lb_name, options)
-        node.set[:elb][new_resource.lb_name] = load_balancer_by_name(new_resource.lb_name)
-        node.save if !Chef::Config.solo
-      end
-      action :create
-    end
-    new_resource.updated_by_last_action(true)
-  end
 end
 
 action :delete do
@@ -254,7 +191,7 @@ action :delete do
     end
     action :create
     not_if do
-      !load_balancer_by_name(new_resource.lb_name)
+      !!!load_balancer_by_name(new_resource.lb_name)
     end
   end
 end

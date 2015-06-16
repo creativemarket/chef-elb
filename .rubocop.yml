@@ -1,0 +1,40 @@
+# Dear Rubocop, we're going to agree to disagree on the following:
+
+LineLength:
+  Max: 200
+
+Style/Tab:
+  Enabled: false
+
+Style/IndentationWidth:
+  Enabled: false
+
+Style/SingleSpaceBeforeFirstArg:
+  Enabled: false
+
+Style/IndentArray:
+  Enabled: false
+
+Style/MultilineOperationIndentation:
+  Enabled: false
+
+MethodLength:
+  Max: 35
+
+ClassAndModuleChildren:
+  EnforcedStyle: compact
+
+Lint/RescueException:
+  Enabled: false
+
+Metrics/AbcSize:
+  Max: 83
+
+Metrics/CyclomaticComplexity:
+  Max: 7
+
+Style/IndentHash:
+  Enabled: false
+
+Style/RescueModifier:
+  Enabled: false
