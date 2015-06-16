@@ -51,4 +51,5 @@ module Cm
 		ec2.describe_instances('instance-id' => [*instances]).body['reservationSet'].map { |r| r['instancesSet'] }.flatten.map { |i| i['networkInterfaces'] }.flatten.map { |n| n['subnetId'] }
 		end
 	end
+	end
 end
