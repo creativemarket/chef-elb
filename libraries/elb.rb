@@ -35,7 +35,8 @@ module Cm
 
 
 			def load_balancer_by_name(name)
-				elb.describe_load_balancers.body["DescribeLoadBalancersResult"]["LoadBalancerDescriptions"].detect { |lb| lb["LoadBalancerName"] == new_resource.lb_name }
+				options = { LoadBalancerNames: [name] }
+				elb.describe_load_balancers(options).body["DescribeLoadBalancersResult"]["LoadBalancerDescriptions"]
 			end
 
 			def policies_for_load_balancer(name)

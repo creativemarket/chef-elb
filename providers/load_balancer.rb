@@ -79,13 +79,13 @@ action :create do
 				raise "Timed out waiting for ELB data after #{new_resource.timeout} seconds"
 			end
 			node.set[:elb][new_resource.lb_name] = data
-			node.save if !Chef::Config.solo
+			node.save unless Chef::Config.solo
 		end
 		action :create
 		not_if do
-			if data = load_balancer_by_name(new_resource.lb_name)
+			if data == load_balancer_by_name(new_resource.lb_name)
 				node.set[:elb][new_resource.lb_name] = data
-				node.save if !Chef::Config.solo
+				node.save unless Chef::Config.solo
 				true
 			else
 				false
@@ -102,7 +102,7 @@ action :create do
 			block do
 				elb.register_instances_with_load_balancer([instance_to_add], new_resource.lb_name)
 				node.set[:elb][new_resource.lb_name] = load_balancer_by_name(new_resource.lb_name)
-				node.save if !Chef::Config.solo
+				node.save unless Chef::Config.solo
 			end
 			action :create
 		end
@@ -114,13 +114,14 @@ action :create do
 			block do
 				elb.deregister_instances_from_load_balancer([instance_to_delete], new_resource.lb_name)
 				node.set[:elb][new_resource.lb_name] = load_balancer_by_name(new_resource.lb_name)
-				node.save if !Chef::Config.solo
+				node.save unless Chef::Config.solo
 			end
 			action :create
 		end
 		new_resource.updated_by_last_action(true)
 	end
-
+	debug_vpcid = load_balancer_by_name(new_resource.lb_name)["VPCId"]
+	Chef::Log.info("debug_vpcid = #{debug_vpcid}")
 	if load_balancer_by_name(new_resource.lb_name)["VPCId"]
 		subnets_to_add = new_resource.subnet_ids - current_resource.subnet_ids
 		subnets_to_delete = current_resource.subnet_ids - new_resource.subnet_ids
@@ -130,7 +131,7 @@ action :create do
 				block do
 					elb.attach_load_balancer_to_subnets([subnet_to_add], new_resource.lb_name)
 					node.set[:elb][new_resource.lb_name] = load_balancer_by_name(new_resource.lb_name)
-					node.save if !Chef::Config.solo
+					node.save unless Chef::Config.solo
 				end
 				action :create
 			end
@@ -142,7 +143,7 @@ action :create do
 				block do
 					elb.detach_load_balancer_from_subnets([subnet_to_delete], new_resource.lb_name)
 					node.set[:elb][new_resource.lb_name] = load_balancer_by_name(new_resource.lb_name)
-					node.save if !Chef::Config.solo
+					node.save unless Chef::Config.solo
 				end
 				action :create
 			end
@@ -157,7 +158,7 @@ action :create do
 				block do
 					elb.enable_availability_zones_for_load_balancer([zone_to_add], new_resource.lb_name)
 					node.set[:elb][new_resource.lb_name] = load_balancer_by_name(new_resource.lb_name)
-					node.save if !Chef::Config.solo
+					node.save unless Chef::Config.solo
 				end
 				action :create
 			end
@@ -169,7 +170,7 @@ action :create do
 				block do
 					elb.disable_availability_zones_for_load_balancer([zone_to_delete], new_resource.lb_name)
 					node.set[:elb][new_resource.lb_name] = load_balancer_by_name(new_resource.lb_name)
-					node.save if !Chef::Config.solo
+					node.save unless Chef::Config.solo
 				end
 				action :create
 			end
@@ -182,7 +183,7 @@ action :create do
 			block do
 				elb.configure_health_check(new_resource.lb_name, new_resource.health_check)
 				node.set[:elb][new_resource.lb_name] = load_balancer_by_name(new_resource.lb_name)
-				node.save if !Chef::Config.solo
+				node.save unless Chef::Config.solo
 			end
 			action :create
 		end
@@ -197,7 +198,7 @@ action :create do
 			block do
 				elb.create_load_balancer_policy(new_resource.lb_name, name, policy["Type"], attributes)
 				node.set[:elb][new_resource.lb_name] = load_balancer_by_name(new_resource.lb_name)
-				node.save if !Chef::Config.solo
+				node.save unless Chef::Config.solo
 			end
 			action :create
 		end
@@ -206,11 +207,11 @@ action :create do
 
 	new_resource.listeners.each do |listener|
 		if listener["Policies"]
-			ruby_block "Set policies for listener on port #{listener['LoadBalancerPort'].to_s} for ELB #{new_resource.lb_name}" do
+			ruby_block "Set policies for listener on port #{listener['LoadBalancerPort']} for ELB #{new_resource.lb_name}" do
 				block do
 					elb.set_load_balancer_policies_of_listener(new_resource.lb_name, listener["LoadBalancerPort"], listener["Policies"])
 					node.set[:elb][new_resource.lb_name] = load_balancer_by_name(new_resource.lb_name)
-					node.save if !Chef::Config.solo
+					node.save unless Chef::Config.solo
 				end
 				action :create
 			end
@@ -224,7 +225,7 @@ action :create do
 				options = { ConnectionDraining: { Enabled: true, Timeout: new_resource.connection_draining_timeout }}
 				elb.modify_load_balancer_attributes(new_resource.lb_name, options)
 				node.set[:elb][new_resource.lb_name] = load_balancer_by_name(new_resource.lb_name)
-				node.save if !Chef::Config.solo
+				node.save unless Chef::Config.solo
 			end
 			action :create
 		end
@@ -234,10 +235,10 @@ action :create do
 	if new_resource.cross_zone_load_balancing
 		ruby_block "Enabling cross zone load balancing for ELB #{new_resource.lb_name}" do
 			block do
-				options = { CrossZoneLoadBalancing: { Enabled: true }}
+				options = { CrossZoneLoadBalancing: { Enabled: true } }
 				elb.modify_load_balancer_attributes(new_resource.lb_name, options)
 				node.set[:elb][new_resource.lb_name] = load_balancer_by_name(new_resource.lb_name)
-				node.save if !Chef::Config.solo
+				node.save unless Chef::Config.solo
 			end
 			action :create
 		end
@@ -250,7 +251,7 @@ action :delete do
 		block do
 			elb.delete_load_balancer(new_resource.lb_name)
 			node.set[:elb][new_resource.lb_name] = nil
-			node.save if !Chef::Config.solo
+			node.save unless Chef::Config.solo
 		end
 		action :create
 		not_if do
