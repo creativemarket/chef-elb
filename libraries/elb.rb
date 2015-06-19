@@ -35,8 +35,13 @@ module Cm
 
 
 			def load_balancer_by_name(name)
-				options = { 'LoadBalancerNames' => name }
-				elb.describe_load_balancers(options).body["DescribeLoadBalancersResult"]["LoadBalancerDescriptions"]
+				begin
+					options = { 'LoadBalancerNames' => name }
+					elb.describe_load_balancers(options).body["DescribeLoadBalancersResult"]["LoadBalancerDescriptions"][0]
+				rescue Fog::AWS::ELB::NotFound
+					Chef::Log.info ("ELB #{name} not found")
+					return
+				end
 			end
 
 			def policies_for_load_balancer(name)
