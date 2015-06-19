@@ -2,7 +2,7 @@ include Cm::Aws::Elb
 
 def load_current_resource
 
-	@current_lb = load_balancer_by_name(new_resource.lb_name)
+	@current_lb = load_balancer_by_name(new_resource.lb_name) || nil
 	@current_lb_policies = (@current_lb && policies_for_load_balancer(new_resource.lb_name)) || []
 
 	@current_resource = Chef::Resource::ElbLoadBalancer.new(new_resource.lb_name)
@@ -10,7 +10,6 @@ def load_current_resource
 	@current_resource.aws_access_key_id(new_resource.aws_access_key_id)
 	@current_resource.aws_secret_access_key(new_resource.aws_secret_access_key)
 	@current_resource.region(new_resource.region)
-	@current_resource.subnet_ids(new_resource.subnet_ids)
 	@current_resource.cross_zone_load_balancing(new_resource.cross_zone_load_balancing)
 	@current_resource.connection_draining_enable(new_resource.connection_draining_enable)
 	@current_resource.connection_draining_timeout(new_resource.connection_draining_timeout)
@@ -21,9 +20,11 @@ def load_current_resource
 
 	if @current_lb
 		@current_resource.availability_zones(@current_lb['AvailabilityZones'])
+		@current_resource.subnet_ids(@current_lb['Subnets'])
 		@current_resource.instances(@current_lb['Instances'])
 	end
 	@current_resource.availability_zones || @current_resource.availability_zones([])
+	@current_resource.subnet_ids || @current_resource.subnet_ids([])
 	@current_resource.instances || @current_resource.instances([])
 
 	if new_resource.instances.nil? && new_resource.search_query
@@ -37,11 +38,19 @@ def load_current_resource
 	unique_subnets = all_subnets.compact.uniq
 
 	if new_resource.availability_zones.nil?
-		new_resource.availability_zones(unique_zones)
+		begin
+			new_resource.availability_zones(unique_zones)
+		rescue
+			Chef::Log.info("No Availability Zones for instances found, and none specified in attributes. Looking for Subnet IDs...")
+		end
 	end
 
 	if new_resource.subnet_ids.nil?
-		new_resource.subnet_ids(unique_subnets)
+		begin
+			new_resource.subnet_ids(unique_subnets)
+		rescue
+			Chef::Log.fatal("No Subnet IDs for instances found, and none specified in attributes!")
+		end
 	end
 
 	# Transform the existing policies into our format.
@@ -53,45 +62,24 @@ def load_current_resource
 end
 
 action :create do
-	ruby_block "Create ELB #{new_resource.lb_name}" do
-		retries		 new_resource.retries
-		retry_delay 10
-		block do
-			if load_balancer_by_name(new_resource.lb_name)["VPCId"]
-				zones = []	# We're in a VPC so we'll pass subnet_ids and not availability_zones
-				options = { subnet_ids: node['cm-elb']['subnet_ids'], security_groups: node['cm-elb']['security_groups'] }
-				elb.create_load_balancer(zones, new_resource.lb_name, new_resource.listeners, options)
-			else
-				options = { security_groups: node['cm-elb']['security_groups'] }
-				elb.create_load_balancer(new_resource.availability_zones, new_resource.lb_name, new_resource.listeners, options)
-			end
-			data = nil
-			begin
-				Timeout::timeout(new_resource.timeout) do
-					while true
-						data = load_balancer_by_name(new_resource.lb_name)
-						break if data
-						sleep 3
-					end
-				end
-			rescue Fog::AWS::IAM::NotFound
-			rescue Timeout::Error
-				raise "Timed out waiting for ELB data after #{new_resource.timeout} seconds"
-			end
-			node.set[:elb][new_resource.lb_name] = data
-			node.save unless Chef::Config.solo
-		end
-		action :create
-		not_if do
-			if data == load_balancer_by_name(new_resource.lb_name)
-				node.set[:elb][new_resource.lb_name] = data
-				node.save unless Chef::Config.solo
-				true
-			else
-				false
-			end
+	unless @current_lb
+		if new_resource.subnet_ids
+			zones = []
+			options = { subnet_ids: new_resource.subnet_ids, security_groups: new_resource.security_groups }
+			elb.create_load_balancer(zones, new_resource.lb_name, new_resource.listeners, options)
+			Chef::Log.info("ELB #{new_resource.lb_name} created in #{new_resource.subnet_ids} and #{new_resource.security_groups}")
+		else
+			options = { security_groups: new_resource.security_groups }
+			elb.create_load_balancer(new_resource.availability_zones, new_resource.lb_name, new_resource.listeners, options)
+			Chef::Log.info("ELB #{new_resource.lb_name} created in #{new_resource.availability_zones}")
 		end
 	end
+
+
+
+	node.set[:elb][new_resource.lb_name] = load_balancer_by_name(new_resource.lb_name)
+	node.save unless Chef::Config.solo
+
 	new_resource.updated_by_last_action(true)
 
 	instances_to_add = new_resource.instances - current_resource.instances
@@ -120,9 +108,8 @@ action :create do
 		end
 		new_resource.updated_by_last_action(true)
 	end
-	debug_vpcid = load_balancer_by_name(new_resource.lb_name)["VPCId"]
-	Chef::Log.info("debug_vpcid = #{debug_vpcid}")
-	if load_balancer_by_name(new_resource.lb_name)["VPCId"]
+
+	if new_resource.subnet_ids
 		subnets_to_add = new_resource.subnet_ids - current_resource.subnet_ids
 		subnets_to_delete = current_resource.subnet_ids - new_resource.subnet_ids
 
@@ -254,8 +241,6 @@ action :delete do
 			node.save unless Chef::Config.solo
 		end
 		action :create
-		not_if do
-			!load_balancer_by_name(new_resource.lb_name)
-		end
+		not_if !load_balancer_by_name(new_resource.lb_name)
 	end
 end
