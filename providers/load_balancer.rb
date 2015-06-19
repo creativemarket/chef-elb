@@ -1,4 +1,4 @@
-include Comp::Aws::Elb
+include Cm::Aws::Elb
 
 def load_current_resource
 
