@@ -73,6 +73,7 @@ action :create do
 			elb.create_load_balancer(new_resource.availability_zones, new_resource.lb_name, new_resource.listeners, options)
 			Chef::Log.info("ELB #{new_resource.lb_name} created in #{new_resource.availability_zones}")
 		end
+		new_resource.updated_by_last_action(true)
 	end
 
 
