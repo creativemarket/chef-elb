@@ -35,7 +35,7 @@ module Cm
 
 
 			def load_balancer_by_name(name)
-				options = { LoadBalancerNames: [name] }
+				options = { 'LoadBalancerNames' => name }
 				elb.describe_load_balancers(options).body["DescribeLoadBalancersResult"]["LoadBalancerDescriptions"]
 			end
 
