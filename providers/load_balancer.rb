@@ -2,17 +2,14 @@ include Cm::Aws::Elb
 
 def load_current_resource
 
-	if !!load_balancer_by_name(new_resource.lb_name)
-		@current_resource.exists = true
-		puts load_balancer_by_name(new_resource.lb_name)
-	end
+	@current_resource = Chef::Resource::ElbLoadBalancer.new(new_resource.lb_name)
+	@current_resource.exists = !!load_balancer_by_name(new_resource.lb_name)
 
 	if @current_resource.exists
 		@current_lb = load_balancer_by_name(new_resource.lb_name)
 		@current_lb_policies = (@current_lb && policies_for_load_balancer(new_resource.lb_name)) || []
 	end
 
-	@current_resource = Chef::Resource::ElbLoadBalancer.new(new_resource.lb_name)
 	@current_resource.lb_name(new_resource.lb_name)
 	@current_resource.aws_access_key_id(new_resource.aws_access_key_id)
 	@current_resource.aws_secret_access_key(new_resource.aws_secret_access_key)
