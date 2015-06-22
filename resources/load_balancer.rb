@@ -17,3 +17,5 @@ attribute :timeout,                     :kind_of => Integer,	:default => 60
 attribute :health_check,          			:kind_of => Hash,			:default => {}
 attribute :policies,              			:kind_of => Hash,			:default => {}
 attribute :retries,               			:kind_of => Integer,	:default => 20
+
+attr_accessor :exists

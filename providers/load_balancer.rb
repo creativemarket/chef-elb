@@ -2,8 +2,15 @@ include Cm::Aws::Elb
 
 def load_current_resource
 
-	@current_lb = load_balancer_by_name(new_resource.lb_name) || nil
-	@current_lb_policies = (@current_lb && policies_for_load_balancer(new_resource.lb_name)) || []
+	if !!load_balancer_by_name(new_resource.lb_name)
+		@current_resource.exists = true
+		puts load_balancer_by_name(new_resource.lb_name)
+	end
+
+	if @current_resource.exists
+		@current_lb = load_balancer_by_name(new_resource.lb_name)
+		@current_lb_policies = (@current_lb && policies_for_load_balancer(new_resource.lb_name)) || []
+	end
 
 	@current_resource = Chef::Resource::ElbLoadBalancer.new(new_resource.lb_name)
 	@current_resource.lb_name(new_resource.lb_name)
@@ -18,7 +25,7 @@ def load_current_resource
 	@current_resource.health_check(new_resource.health_check)
 	@current_resource.policies(new_resource.policies)
 
-	if @current_lb
+	if @current_resource.exists
 		@current_resource.availability_zones(@current_lb['AvailabilityZones'])
 		@current_resource.subnet_ids(@current_lb['Subnets'])
 		@current_resource.instances(@current_lb['Instances'])
@@ -29,6 +36,7 @@ def load_current_resource
 
 	if new_resource.instances.nil? && new_resource.search_query
 		new_resource.instances(search(:node, new_resource.search_query).map { |n| n['ec2']['instance_id']})
+		Chef::Log.info("new_resource.instances = #{new_resource.instances}")
 	end
 
 	all_zones = availability_zone_for_instances(new_resource.instances)
@@ -54,15 +62,23 @@ def load_current_resource
 	end
 
 	# Transform the existing policies into our format.
-	@current_resource.policies(Hash[@current_lb_policies.map do |policy|
-		hash = Hash[policy["PolicyAttributeDescriptions"].map{|attributes| [attributes["AttributeName"], attributes["AttributeValue"]]}]
-		hash["Type"] = policy["PolicyTypeName"]
-		[policy["PolicyName"], hash]
-	end.to_a])
+	if @current_resource.exists
+		@current_resource.policies(Hash[@current_lb_policies.map do |policy|
+			hash = Hash[policy["PolicyAttributeDescriptions"].map{|attributes| [attributes["AttributeName"], attributes["AttributeValue"]]}]
+			hash["Type"] = policy["PolicyTypeName"]
+			[policy["PolicyName"], hash]
+		end.to_a])
+	end
+	@current_resource
 end
 
+Chef::Log.debug("@current_resource = #{@current_resource}")
+
 action :create do
-	unless @current_lb
+	if @current_resource.exists
+		Chef::Log.info "#{ @new_resource } already exists - nothing to do."
+	else
+
 		if new_resource.subnet_ids
 			zones = []
 			options = { subnet_ids: new_resource.subnet_ids, security_groups: new_resource.security_groups }
@@ -76,8 +92,6 @@ action :create do
 		new_resource.updated_by_last_action(true)
 	end
 
-
-
 	node.set[:elb][new_resource.lb_name] = load_balancer_by_name(new_resource.lb_name)
 	node.save unless Chef::Config.solo
 
@@ -89,7 +103,7 @@ action :create do
 	instances_to_add.each do |instance_to_add|
 		ruby_block "Register instance #{instance_to_add} with ELB #{new_resource.lb_name}" do
 			block do
-				elb.register_instances_with_load_balancer([instance_to_add], new_resource.lb_name)
+				elb.register_instances_with_load_balancer(instance_to_add, new_resource.lb_name)
 				node.set[:elb][new_resource.lb_name] = load_balancer_by_name(new_resource.lb_name)
 				node.save unless Chef::Config.solo
 			end
@@ -221,7 +235,7 @@ action :create do
 	end
 
 	if new_resource.cross_zone_load_balancing
-		ruby_block "Enabling cross zone load balancing for ELB #{new_resource.lb_name}" do
+		ruby_block "Enabling cross zone load balancing for ELB #{new_resource.lb_name} & current_resource = #{@current_resource}" do
 			block do
 				options = { CrossZoneLoadBalancing: { Enabled: true } }
 				elb.modify_load_balancer_attributes(new_resource.lb_name, options)
@@ -231,6 +245,10 @@ action :create do
 			action :create
 		end
 		new_resource.updated_by_last_action(true)
+		Chef::Log.debug("current_resource = #{@current_resource}")
+	end
+	breakpoint "end of elb_create action block" do
+		action :break
 	end
 end
 
