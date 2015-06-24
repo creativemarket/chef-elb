@@ -168,11 +168,13 @@ action :create do
 		node.set['elb'][@new_resource.lb_name] = load_balancer_by_name(@new_resource.lb_name)
 		@new_resource.updated_by_last_action(true)
 	end
+	node.save
 end
 
 action :delete do
 	elb.delete_load_balancer(@new_resource.lb_name)
 	node.set['elb'][@new_resource.lb_name] = nil
 	@new_resource.updated_by_last_action(true)
+	node.save
 	not_if !load_balancer_by_name(@new_resource.lb_name)
 end
