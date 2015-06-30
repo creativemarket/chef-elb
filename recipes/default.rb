@@ -2,7 +2,7 @@
 # Cookbook Name:: elb
 # Recipe:: default
 #
-# Copyright 2011, Webster Clay, LLC
+# Copyright 2015, Creative Market
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -23,17 +23,10 @@
 	libxml2-dev
 	libxslt1-dev
 ).each do |pkg|
-	r = package pkg do
-		action :nothing
-	end
-	r.run_action(:install)
+	package pkg
 end
 
-r = gem_package "fog" do
-	action :nothing
-end
-
-r.run_action(:install)
+chef_gem 'fog'
 
 require 'rubygems'
 Gem.clear_paths

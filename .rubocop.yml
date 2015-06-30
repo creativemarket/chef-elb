@@ -38,3 +38,6 @@ Style/IndentHash:
 
 Style/RescueModifier:
   Enabled: false
+
+Style/Next:
+  Enabled: false
