@@ -45,7 +45,6 @@ end
 action :create do
 	if @current_resource.exists
 		node.set['elb'][@new_resource.lb_name] = load_balancer_by_name(@new_resource.lb_name)
-		Chef::Log.info("node['elb'][@new_resource.lb_name] = #{node['elb'][@new_resource.lb_name]}")
 		Chef::Log.info("#{ @new_resource } already exists - Skipping create.")
 	else
 
