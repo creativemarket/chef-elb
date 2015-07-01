@@ -172,3 +172,9 @@ action :delete do
 	node.save
 	not_if !load_balancer_by_name(@new_resource.lb_name)
 end
+
+action :dereg_instance do
+	elb.deregister_instances_from_load_balancer([node['ec2']['instance_id']], @new_resource.lb_name)
+	node.set['elb'][@new_resource.lb_name] = load_balancer_by_name(@new_resource.lb_name)
+	new_resource.updated_by_last_action(true)
+end

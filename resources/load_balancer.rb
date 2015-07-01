@@ -1,4 +1,4 @@
-actions :create, :delete
+actions :create, :delete, :dereg_instance
 default_action :create
 
 attribute :lb_name,               			kind_of: String,		name_attribute: true
