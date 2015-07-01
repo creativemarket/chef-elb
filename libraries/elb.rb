@@ -1,4 +1,8 @@
 # base module scope
+module Cm
+end
+
+# AWS module
 module Cm::Aws
 end
 
