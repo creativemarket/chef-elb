@@ -178,3 +178,9 @@ action :dereg_instance do
 	node.set['elb'][@new_resource.lb_name] = load_balancer_by_name(@new_resource.lb_name)
 	new_resource.updated_by_last_action(true)
 end
+
+action :reg_instance do
+	elb.register_instances_with_load_balancer([node['ec2']['instance_id']], @new_resource.lb_name)
+	node.set['elb'][@new_resource.lb_name] = load_balancer_by_name(@new_resource.lb_name)
+	new_resource.updated_by_last_action(true)
+end
