@@ -46,7 +46,7 @@ module Cm::Aws::Elb
 		options = { 'LoadBalancerNames' => name }
 		elb.describe_load_balancers(options).body['DescribeLoadBalancersResult']['LoadBalancerDescriptions'][0]
 	rescue Fog::AWS::ELB::NotFound
-		Chef::Log.info('ELB #{name} not found')
+		Chef::Log.info("ELB #{name} not found")
 		return
 	end
 

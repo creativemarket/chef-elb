@@ -79,17 +79,23 @@ action :create do
 
 	unless Chef::Config[:solo]
 		@new_resource.instances(search(:node, @new_resource.search_query).map { |n| n['ec2']['instance_id'] })
+		Chef::Log.debug("@new_resource.instances = #{@new_resource.instances}")
+		Chef::Log.debug("@current_resource.instances = #{@current_resource.instances}")
 		@instances_to_add = @new_resource.instances - @current_resource.instances
+		Chef::Log.debug("@instances_to_add = #{@instances_to_add}")
 		@instances_to_delete = @current_resource.instances - @new_resource.instances
+		Chef::Log.debug("@instances_to_delete = #{@instances_to_delete}")
 	end
 
 	@instances_to_add.each do |instance_to_add|
+		Chef::Log.debug("instance_to_add = #{instance_to_add}")
 		elb.register_instances_with_load_balancer(instance_to_add, @new_resource.lb_name)
 		node.set['elb'][@new_resource.lb_name] = load_balancer_by_name(@new_resource.lb_name)
 		new_resource.updated_by_last_action(true)
 	end
 
 	@instances_to_delete.each do |instance_to_delete|
+		Chef::Log.debug("instance_to_delete = #{instance_to_delete}")
 		elb.deregister_instances_from_load_balancer([instance_to_delete], @new_resource.lb_name)
 		node.set['elb'][@new_resource.lb_name] = load_balancer_by_name(@new_resource.lb_name)
 		new_resource.updated_by_last_action(true)
